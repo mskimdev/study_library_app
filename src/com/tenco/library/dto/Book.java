@@ -14,6 +14,6 @@ public class Book {
     private String author;
     private String publisher;
     private int publicationYear;
-    private int isbn;
+    private String isbn;
     private boolean available;
 }
