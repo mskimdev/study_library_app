@@ -43,12 +43,4 @@ public class DatabaseUtil {
 
         return conn;
     }
-
-    public static void main(String[] args) {
-        try {
-            DatabaseUtil.getConnection();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
 }

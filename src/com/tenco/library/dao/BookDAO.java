@@ -53,7 +53,7 @@ public class BookDAO {
         return bookList;
     }
     // 제목으로 도서 검색
-    public List<Book> searchBookByTitle(String title) throws SQLException {
+    public List<Book> searchBooksByTitle(String title) throws SQLException {
         List<Book> bookList = new ArrayList<>();
         String sql = """
                 SELECT * FROM books WHERE title LIKE ?
@@ -83,16 +83,5 @@ public class BookDAO {
                 .isbn(rs.getString("isbn"))
                 .available(rs.getBoolean("available"))
                 .build();
-    }
-
-    public static void main(String[] args) {
-        try {
-            List<Book> resultList = new BookDAO().searchBookByTitle("입문");
-            System.out.println(resultList);
-            System.out.println("--------------------");
-            System.out.println(new BookDAO().getAllBooks());
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
     }
 }

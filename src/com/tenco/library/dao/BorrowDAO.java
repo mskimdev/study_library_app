@@ -191,15 +191,4 @@ public class BorrowDAO {
         }
 
     }
-
-    public static void main(String[] args) {
-        BorrowDAO borrowDAO = new BorrowDAO();
-        try {
-            borrowDAO.returnBook(1, 1);
-
-        } catch (SQLException e) {
-            System.out.println("-------------------------------");
-            System.out.println("메인 오류 발생 " + e.getMessage());
-        }
-    }
 }
