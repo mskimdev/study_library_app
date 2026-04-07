@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DataSourcePerFileMappings">
+    <file url="file://$PROJECT_DIR$/src/com/tenco/library/dao/BorrowDAO.java" value="7b1ac8b8-2ca1-4e79-b3ef-980a6f82d1bb" />
     <file url="file://$PROJECT_DIR$/src/com/tenco/library/dao/StudentDAO.java" value="7b1ac8b8-2ca1-4e79-b3ef-980a6f82d1bb" />
   </component>
 </project>
