@@ -48,7 +48,6 @@ public class StudentDAO {
             }
         }
 
-
         return studentList;
     }
 
@@ -81,16 +80,5 @@ public class StudentDAO {
                 .name(rs.getString("name"))
                 .studentId(rs.getString("student_id"))
                 .build();
-    }
-
-    public static void main(String[] args) {
-        try {
-            System.out.println(new StudentDAO().authenticateStudent("20230001"));
-
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-
-
     }
 }
