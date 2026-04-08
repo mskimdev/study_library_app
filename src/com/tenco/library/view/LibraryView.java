@@ -1,66 +1,308 @@
 package com.tenco.library.view;
 
-import javax.swing.*;
-import javax.swing.border.TitledBorder;
-import javax.swing.table.DefaultTableModel;
-import java.awt.*;
 
-public class LibraryView extends JFrame {
+import com.tenco.library.dto.Book;
+import com.tenco.library.dto.BookBorrowJoin;
+import com.tenco.library.dto.Borrow;
+import com.tenco.library.dto.Student;
+import com.tenco.library.service.LibraryService;
 
-    // 상단 status 및 로그인
-    private JLabel loginStatusLabel;
-    private JTextField studentIdField;
-    private JTextField adminIdField;
-    private JPasswordField adminPwField;
-
-    // 도서 관리
-    private JTextField titleField;
-    private JTextField authorField;
-    private JTextField publisherField;
-    private JTextField publishYearField;
-    private JTextField isbnField;
-
-    // 검색 영역
-    private JTextField searchField;
-
-    // 테이블
-    private JTable bookTable;
-    private DefaultTableModel tableModel;
-
-    public LibraryView() {
-        setTitle("도서관리 시스템");
-        setSize(900, 680);
-        setLocationRelativeTo(null);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setLayout(new BorderLayout());
-
-        // 상단 헤더 추가
-        add(createHeader(), BorderLayout.CENTER);
-        // 밑에 탭 추가(dynamic)
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
 
 
-        setVisible(true);
+// 사용자 입출력을 처리하는 View 클래스
+public class LibraryView  {
+
+    private final LibraryService service = new LibraryService();
+    private final Scanner sc = new Scanner(System.in);
+
+    private Integer currentStudentId = null; // 로그인 중인 학생의 DB ID 저장
+    private String currentStudentName = null; // 로그인 중인 학생 이름
+
+    // 프로그램 메인 루프
+    public void start(){
+        System.out.println("도서관리 시스템 시작 ...");
+
+        while(true){
+            printMenu();
+            int choice = readInt("선택 : ");
+
+            try{
+                switch(choice){
+                    case 1: addBook(); break;
+                    case 2: listBooks(); break;
+                    case 3: searchBooks(); break;
+                    case 4: addStudent(); break;
+                    case 5: listStudents(); break;
+                    case 6: borrowedBooks(); break;
+                    case 7: listBorrowedBooks(); break;
+                    case 8: returnBook(); break;
+                    case 9: login(); break;
+                    case 10: logout(); break;
+                    case 11:
+                        System.out.println("프로그램을 종료합니다.");
+                        sc.close();
+                        return;
+                    default:
+                        System.out.println("1 ~ 11 사이의 숫자를 입력하세요.");
+                }
+
+
+            } catch(SQLException e){
+                System.out.println("오류 : " + e.getMessage());
+            }
+        }
     }
 
-    private JPanel createHeader(){
-        JPanel panel = new JPanel();
-        JLabel studentNum = new JLabel("| 학번");
+    // 1. 도서 추가
+    private void addBook() throws SQLException{
+        System.out.print("제목 : "); String title = sc.nextLine().trim();
+        if(title.isEmpty()){
+            System.out.println("제목은 필수입니다.");
+            return;
+        }
 
-        studentIdField = new JTextField(10);
+        System.out.print("저자 : "); String author = sc.nextLine().trim();
+        if(author.isEmpty()){
+            System.out.println("저자는 필수입니다.");
+            return;
+        }
 
-        panel.setLayout(new FlowLayout(FlowLayout.LEFT, 10, 10));
+        System.out.print("출판사 : "); String publisher = sc.nextLine().trim();
+        if(publisher.isEmpty()){
+            System.out.println("출판사는 필수입니다.");
+            return;
+        }
 
-        loginStatusLabel = new JLabel("로그아웃 상태");
-        loginStatusLabel.setForeground(Color.RED);
-
-        panel.add(loginStatusLabel);
-        panel.add(studentNum); panel.add(studentIdField);
+        int publishYear = readInt("출판년도 : ");
 
 
-        return panel;
+        System.out.print("ISBN : "); String isbn = sc.nextLine().trim();
+        if(isbn.isEmpty()){
+            System.out.println("ISBN은 필수입니다.");
+            return;
+        }
+
+        Book book = Book.builder()
+                .title(title)
+                .author(author)
+                .publisher(publisher.isEmpty() ? null : publisher)
+                .publicationYear(publishYear)
+                .isbn(isbn.isEmpty() ? null : isbn)
+                .available(true)
+                .build();
+
+        service.addBook(book);
+        System.out.println("도서 추가 : " + book);
     }
 
-    public static void main(String[] args) {
-        new LibraryView();
+
+    // 2. 도서 목록
+    private void listBooks() throws SQLException{
+        List<Book> bookList = service.getAllBooks();
+        if(bookList.isEmpty()){
+            System.out.println("등록된 도서가 없습니다.");
+            return;
+        }
+        else{
+            System.out.println("-------- 도서 목록 ---------");
+            for(Book b : bookList){
+                System.out.printf("ID : %2d | %-30s | %-15s | %s%n",
+                        b.getId(),
+                        b.getTitle(),
+                        b.getAuthor(),
+                        b.isAvailable() ? "대출 가능" : "대출중");
+            }
+        }
+
+    }
+
+    // 3. 도서 검색
+    private void searchBooks() throws SQLException {
+        System.out.print("찾으시려는 도서 : "); String title = sc.nextLine().trim();
+        if(title.isEmpty()){
+            System.out.println("도서명을 정확하게 입력해주세요.");
+            return;
+        }
+
+        List<Book> bookList = service.searchBooksByTitle(title);
+        if(bookList.isEmpty()){
+            System.out.println("찾으시려는 도서가 없습니다.");
+            return;
+        }
+
+        System.out.println("-------------------");
+        bookList.forEach(b -> System.out.println(b));
+    }
+
+    // 4. 학생 등록
+    private void addStudent() throws SQLException {
+        System.out.print("학생 이름 : "); String name = sc.nextLine().trim();
+        if(name.isEmpty()){
+            System.out.println("학생 이름은 필수 입력 항목입니다.");
+            return;
+        }
+        System.out.print("학번 : "); String studentId = sc.nextLine().trim();
+        if(studentId.isEmpty()){
+            System.out.println("학번은 필수 입력 항목입니다.");
+            return;
+        }
+
+        Student student = Student.builder()
+                .name(name)
+                .studentId(studentId)
+                .build();
+
+        service.addStudent(student);
+        System.out.println("----- 학생 등록 결과 -----");
+        System.out.println(student.getName() + "(" + studentId + ") 학생이 등록되었습니다.");
+    }
+
+    // 5. 학생 목록
+    private void listStudents() throws SQLException{
+        List<Student> studentList = service.getAllStudents();
+        if(studentList.isEmpty()) {
+            System.out.println("학생이 등록되어있지 않습니다.");
+            return;
+        }
+
+        System.out.println("----- 학생 목록 -----");
+        studentList.forEach(student -> System.out.println(student));
+    }
+
+    // 6. 도서 대출
+    private void borrowedBooks() throws SQLException {
+        if(currentStudentId == null){
+            System.out.println("로그인 후 사용가능합니다.");
+            return;
+        }
+        System.out.print("대출 하려는 도서 제목 : "); String title = sc.nextLine().trim();
+        if(title.isEmpty()){
+            System.out.println("도서 제목은 필수 입력 항목입니다.");
+            return;
+        }
+
+        List<Book> bookList = service.searchBooksByTitle(title);
+        if(bookList.isEmpty()){
+            System.out.println("해당하는 도서가 존재하지 않습니다.");
+            return;
+        }
+
+        System.out.println("------ " + bookList.size() + "건의 조회 발생 ------");
+        bookList.forEach(book -> System.out.println(book));
+        System.out.println("----------------------------------");
+
+        System.out.print("대출 하려는 도서 ID를 입력해주세요");
+        int bookId = readInt(" : ");
+
+        String bookName = service.borrowBook(bookId, currentStudentId);
+        System.out.println("(" + bookName + ") 대출 성공 ");
+
+    }
+
+    // 7. 대출중인 도서
+    private List<BookBorrowJoin> listBorrowedBooks() throws SQLException {
+        List<BookBorrowJoin> borrowList = service.getBorrowedBooksById(currentStudentId);
+        if(borrowList.isEmpty()){
+            System.out.println("현재 대출중인 도서가 없습니다.");
+            return null;
+        }
+        System.out.println("---" + currentStudentName + "님의 현재 대출중인 도서 ---");
+        borrowList.forEach(b -> System.out.println(b));
+
+        return borrowList;
+    }
+
+    // 8. 도서 반납
+    private void returnBook() throws SQLException{
+        List<BookBorrowJoin> bbr = listBorrowedBooks();
+        System.out.print("반납 하려는 도서 ID를 입력하세요");
+        int bookId = readInt(" : ");
+
+        // bookTitle 제공용 for문
+        String bookTitle = null;
+        for(BookBorrowJoin b : bbr){
+            if(b.getId() == bookId){
+                bookTitle = b.getTitle();
+            }
+        }
+
+        service.returnBook(bookId, currentStudentId);
+        System.out.println("---- (" + bookTitle + ") 반납 성공 ----");
+    }
+
+    // 9. 로그인
+    private void login() throws SQLException {
+        if (currentStudentId != null && currentStudentName != null){
+            System.out.println("이미 로그인 중입니다. (" + currentStudentName + ")");
+            return;
+        }
+
+        System.out.print("학번 : ");
+        String studentId = sc.nextLine().trim();
+        // 유효성 검사
+        if(!studentId.isEmpty()){
+            Student student = service.authenticateStudent(studentId);
+            if(student == null){
+                System.out.println("존재하지 않는 학번입니다.");
+            } else{
+                currentStudentId = student.getId();
+                currentStudentName = student.getName();
+                System.out.println(currentStudentName + " 님, 환영합니다.");
+            }
+
+        }
+
+    }
+
+    // 10. 로그아웃
+    private void logout() {
+        if(currentStudentId == null){
+            System.out.println("현재 로그인 상태가 아닙니다.");
+        } else{
+            System.out.println(currentStudentName + "님이 로그아웃되었습니다.");
+            currentStudentId = null;
+            currentStudentName = null;
+        }
+    }
+
+    // 11. 종료
+    private void exit() {
+    }
+
+    private void printMenu(){
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        System.out.println("\n==== 도서관리 시스템 ====");
+        System.out.println("----------------------- --");
+        System.out.println("1. 도서 추가");
+        System.out.println("2. 도서 목록");
+        System.out.println("3. 도서 검색");
+        System.out.println("4. 학생 등록");
+        System.out.println("5. 학생 목록");
+        System.out.println("6. 도서 대출");
+        System.out.println("7. 대출 중인 도서");
+        System.out.println("8. 도서 반납");
+        System.out.println("9. 로그인");
+        System.out.println("10. 로그아웃");
+        System.out.println("11. 종료");
+    }
+
+    // 숫자 입력을 안전하게 처리(잘못된 입력 시 재 요청)
+    private int readInt(String prompt){
+        while(true){
+            System.out.print(prompt);
+            try{
+                return Integer.parseInt(sc.nextLine().trim());
+            } catch(NumberFormatException e){
+                System.out.println("숫자를 입력해주세요.");
+            }
+        }
     }
 }
