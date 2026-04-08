@@ -1,6 +1,7 @@
 package com.tenco.library.dao;
 
 import com.tenco.library.dto.Borrow;
+import com.tenco.library.dto.BookBorrowJoin;
 import com.tenco.library.util.DatabaseUtil;
 
 import java.sql.*;
@@ -24,15 +25,16 @@ public class BorrowDAO {
      * @param studentId : 학번이 아니라 student 테이블의 PK이다. (int형)
      * @throws SQLException
      */
-    public void borrowBook(int bookId, int studentId) throws SQLException {
+    public String borrowBook(int bookId, int studentId) throws SQLException {
         Connection conn = null;
+        String bookTitle = null;
         try {
             conn = DatabaseUtil.getConnection();
             conn.setAutoCommit(false); // 트랜잭션 시작
 
             // 1. 대출 가능 여부 확인
             String checkSql = """
-                    SELECT available FROM books where id = ?
+                    SELECT title, available FROM books where id = ?
                     """;
 
             try (PreparedStatement checkPstmt = conn.prepareStatement(checkSql)) {
@@ -46,6 +48,8 @@ public class BorrowDAO {
                     if (!rs.getBoolean("available")) {
                         throw new SQLException("이미 대출 중인 도서입니다. 반납 후 이용 가능");
                     }
+
+                    bookTitle = rs.getString("title");
                 }
             }
 
@@ -72,8 +76,6 @@ public class BorrowDAO {
             } // end of updatePstmt
             // 1, 2, 3 모두 성공 -> 커밋
             conn.commit();
-            System.out.println("책 대여 성공");
-
 
         } catch (SQLException e) {
             if (conn != null) {
@@ -87,11 +89,40 @@ public class BorrowDAO {
                 conn.close();
             }
         }
+
+        return bookTitle;
     }
 
-    // 현재 대출 중인 도서 목록 조회
+    // 특정 회원의 대출 중인 도서 목록 조회 (ById)
+    public List<BookBorrowJoin> getBorrowedBooksById(int id) throws SQLException {
+        List<BookBorrowJoin> result = new ArrayList<>();
+        String sql = """
+                SELECT b.id, b.title, b.author, br.borrow_Date FROM books b
+                JOIN borrows br ON b.id = br.book_id
+                JOIN students s ON s.id = br.student_id
+                WHERE s.id = ? AND return_date IS NULL
+                ORDER BY br.borrow_Date;
+                """;
+        try(Connection conn = DatabaseUtil.getConnection();
+            PreparedStatement pstmt = conn.prepareStatement(sql)){
+            pstmt.setInt(1, id);
+            try(ResultSet rs = pstmt.executeQuery()){
+                while (rs.next()) {
+                    result.add(BookBorrowJoin.builder()
+                            .id(rs.getInt("id"))
+                            .title(rs.getString("title"))
+                            .author(rs.getString("author"))
+                            .borrowDate(rs.getDate("borrow_date") != null ?
+                                    rs.getDate("borrow_date").toLocalDate() : null)
+                            .build());
+                }
+            }
+        }
+        return result;
+    }
 
-    public List<Borrow> getBorrowedBooks() throws SQLException {
+    // 현재 대출 중인 모든 도서 목록 조회 (관리자용인듯?)
+    public List<Borrow> getAllBorrowedBooks() throws SQLException {
         List<Borrow> borrowList = new ArrayList<>();
         String sql = """
                 SELECT * FROM borrows WHERE return_date IS NULL ORDER BY borrow_date
@@ -182,7 +213,7 @@ public class BorrowDAO {
 
         } catch(SQLException e){
             if(conn != null) conn.rollback();
-            System.err.println("반납 처리 실패 (Connection Error : " + e.getMessage() + ")");
+            System.err.println("반납 처리 실패 (" + e.getMessage() + ")");
         } finally{
             if(conn != null){
                 conn.setAutoCommit(true);
